@@ -406,3 +406,4 @@ function getCardImageName(card) {
 window.onload = () => {
     initGame(2); // Giocatore vs CPU
 };
+
