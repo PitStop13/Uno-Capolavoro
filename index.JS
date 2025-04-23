@@ -1,47 +1,63 @@
+// index.js
+
+// Variabili di gioco
 const colors = ['red', 'green', 'blue', 'yellow'];
+const numbers = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
 const actions = ['+2', 'skip', 'reverse'];
 const wildActions = ['wild', '+4'];
 let deck = [];
 let players = [];
-let currentPlayer = 0;
+let currentPlayer = 0; // 0 = Player, 1 = CPU
 let currentCard = null;
-let currentDirection = 1;
+let currentDirection = 1; // 1 = avanti, -1 = indietro
 let gameOver = false;
+let choosingColor = false;
+let cardBeingPlayed = null;
 
+// Inizializza il gioco
 function initGame(numPlayers) {
+    deck = [];
+    players = Array(numPlayers).fill(null).map(() => []);
+    currentPlayer = 0;
+    currentCard = null;
+    currentDirection = 1;
+    gameOver = false;
+    choosingColor = false;
+    cardBeingPlayed = null;
     createDeck();
     shuffleDeck();
     dealCards(numPlayers);
-    currentCard = drawCard();
-    while (currentCard.color === 'wild' && currentCard.value === '+4') {
-        deck.unshift(currentCard);
-        shuffleDeck();
+    // Assicurati che la prima carta non sia un jolly +4
+    while (currentCard === null || (currentCard.color === 'wild' && currentCard.value === '+4')) {
+        if (currentCard) deck.unshift(currentCard); // Rimetti la carta in cima al mazzo
         currentCard = drawCard();
     }
-    updateCurrentColorDisplay();
     updateGameDisplay();
-    if (currentPlayer === 1) setTimeout(cpuTurn, 1000);
+    if (currentPlayer === 1 && !gameOver) setTimeout(cpuTurn, 1500); // La CPU inizia se è il suo turno
 }
 
+// Crea il mazzo di carte Uno
 function createDeck() {
     deck = [];
     for (let color of colors) {
-        deck.push({ color, value: '0' });
+        deck.push({ color: color, value: '0' }); // Uno 0 per colore
         for (let i = 1; i <= 9; i++) {
-            deck.push({ color, value: i.toString() });
-            deck.push({ color, value: i.toString() });
+            deck.push({ color: color, value: i.toString() }); // Due copie delle carte numero 1-9
+            deck.push({ color: color, value: i.toString() });
         }
         for (let action of actions) {
-            deck.push({ color, value: action });
-            deck.push({ color, value: action });
+            deck.push({ color: color, value: action }); // Due copie delle carte azione per colore
+            deck.push({ color: color, value: action });
         }
     }
+    // Aggiungi carte jolly
     for (let i = 0; i < 4; i++) {
         deck.push({ color: 'wild', value: '+4' });
         deck.push({ color: 'wild', value: 'wild' });
     }
 }
 
+// Mescola il mazzo
 function shuffleDeck() {
     for (let i = deck.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -49,6 +65,7 @@ function shuffleDeck() {
     }
 }
 
+// Distribuisci le carte ai giocatori
 function dealCards(numPlayers) {
     players = Array.from({ length: numPlayers }, () => []);
     for (let i = 0; i < 7; i++) {
@@ -58,230 +75,334 @@ function dealCards(numPlayers) {
     }
 }
 
+// Pesca una carta dal mazzo
 function drawCard() {
-    if (deck.length === 0) resetDeck();
+    if (deck.length === 0) {
+        resetDeck(); // Se il mazzo è vuoto, lo si rimescola (tranne l'ultima giocata)
+    }
     return deck.pop();
 }
 
+// Resetta il mazzo usando le carte scartate (tranne l'ultima giocata)
 function resetDeck() {
     const lastCard = currentCard;
-    deck = [];
-    const discarded = document.querySelectorAll('.played-card');
-    discarded.forEach(div => {
-        const color = div.dataset.color;
-        const value = div.dataset.value;
-        if (!(color === lastCard.color && value === lastCard.value)) {
-            deck.push({ color, value });
-        }
-    });
-    shuffleDeck();
+    let discardedCards = [];
+    const gameContainer = document.getElementById('game-container');
+    const playedCardElement = gameContainer.querySelector('.played-card');
+    if (playedCardElement) {
+        // Simula la raccolta delle carte giocate (escluse l'ultima)
+        const tempDeck = [];
+        // Ricrea il mazzo dalle mani dei giocatori (esclusa la carta corrente)
+        players.forEach(hand => {
+            hand.forEach(card => {
+                if (!(card.color === lastCard.color && card.value === lastCard.value)) {
+                    tempDeck.push(card);
+                }
+            });
+        });
+        deck = tempDeck;
+        shuffleDeck();
+        // Riassegna la carta corrente (potrebbe essere gestito diversamente)
+        currentCard = { ...lastCard };
+        updateGameDisplay(); // Aggiorna la visualizzazione
+    } else {
+        createDeck(); // Se non c'è carta giocata, ricrea il mazzo (inizio partita)
+        shuffleDeck();
+        dealCards(players.length);
+        currentCard = drawCard();
+        updateGameDisplay();
+    }
 }
 
+// Controlla se una carta può essere giocata
 function canPlayCard(card) {
-    return card.color === currentCard.color || card.value === currentCard.value || card.color === 'wild';
+    if (!currentCard) return true; // All'inizio del gioco
+
+    return (
+        card.color === currentCard.color ||
+        card.value === currentCard.value ||
+        card.color === 'wild'
+    );
 }
 
+// Gestisci l'effetto di una carta azione
+function handleActionCard(card) {
+    if (card.value === '+2') {
+        const nextPlayer = getNextPlayer();
+        players[nextPlayer].push(drawCard());
+        players[nextPlayer].push(drawCard());
+        updateGameDisplay();
+        alert(`${getPlayerName(nextPlayer)} pesca 2 carte!`);
+        // Il turno passa dopo aver pescato
+    } else if (card.value === 'skip') {
+        currentPlayer = getNextPlayer(); // Salta il prossimo giocatore
+        alert(`${getPlayerName(currentPlayer)} è stato saltato!`);
+    } else if (card.value === 'reverse') {
+        currentDirection *= -1; // Inverti la direzione di gioco
+        alert('La direzione di gioco è stata invertita!');
+    } else if (card.value === '+4') {
+        const nextPlayer = getNextPlayer();
+        for (let i = 0; i < 4; i++) {
+            players[nextPlayer].push(drawCard());
+        }
+        updateGameDisplay();
+        alert(`${getPlayerName(nextPlayer)} pesca 4 carte!`);
+        choosingColor = true;
+        cardBeingPlayed = card;
+        updateColorChoiceDisplay();
+        return; // Non passare subito il turno, aspetta la scelta del colore
+    } else if (card.value === 'wild') {
+        choosingColor = true;
+        cardBeingPlayed = card;
+        updateColorChoiceDisplay();
+        return; // Non passare subito il turno, aspetta la scelta del colore
+    }
+    // Se non è un +4 o un jolly, il turno passa normalmente
+    switchTurn();
+}
+
+function chooseColor(color) {
+    if (choosingColor && cardBeingPlayed) {
+        currentCard.color = color;
+        choosingColor = false;
+        cardBeingPlayed = null;
+        updateColorChoiceDisplay(); // Nascondi la scelta del colore
+        updateGameDisplay();
+        switchTurn();
+    }
+}
+
+function switchTurn() {
+    if (!gameOver) {
+        currentPlayer = getNextPlayer();
+        updateGameDisplay();
+        if (currentPlayer === 1) setTimeout(cpuTurn, 1500);
+    }
+}
+
+// Ottieni l'indice del prossimo giocatore
 function getNextPlayer() {
     return (currentPlayer + currentDirection + players.length) % players.length;
 }
 
-function getPlayerName(i) {
-    return i === 0 ? "Giocatore" : "CPU";
+// Ottieni il nome del giocatore
+function getPlayerName(playerIndex) {
+    return playerIndex === 0 ? 'Giocatore' : 'CPU';
 }
 
-function handleActionCard(card) {
-    if (card.value === '+2') {
-        const next = getNextPlayer();
-        players[next].push(drawCard(), drawCard());
-        alert(`${getPlayerName(next)} pesca 2 carte!`);
-    } else if (card.value === 'skip') {
-        currentPlayer = getNextPlayer();
-        alert(`${getPlayerName(currentPlayer)} è stato saltato!`);
-    } else if (card.value === 'reverse') {
-        currentDirection *= -1;
-        alert('La direzione è invertita!');
-    }
-
-    if (card.value === '+4' || card.value === 'wild') {
-        if (card.value === '+4') {
-            const next = getNextPlayer();
-            for (let i = 0; i < 4; i++) players[next].push(drawCard());
-            alert(`${getPlayerName(next)} pesca 4 carte!`);
-        }
-
-        if (currentPlayer === 0) {
-            let chosen = '';
-            while (!colors.includes(chosen)) {
-                chosen = prompt("Scegli un colore (red, green, blue, yellow):").toLowerCase();
-            }
-            currentCard.color = chosen;
-        } else {
-            const colorCounts = {};
-            for (const c of players[currentPlayer]) {
-                if (c.color !== 'wild') colorCounts[c.color] = (colorCounts[c.color] || 0) + 1;
-            }
-            currentCard.color = Object.entries(colorCounts).reduce((a, b) => b[1] > a[1] ? b : a, ['red', 0])[0];
-            alert(`La CPU ha scelto: ${currentCard.color.toUpperCase()}`);
-        }
-
-        updateCurrentColorDisplay();
-    }
-}
-
+// Il giocatore gioca una carta
 function playCard(playerIndex, cardIndex) {
-    if (gameOver || currentPlayer !== playerIndex) return;
+    if (gameOver || currentPlayer !== 0 || choosingColor) return;
+
     const card = players[playerIndex][cardIndex];
-    if (!canPlayCard(card)) return alert("Carta non valida!");
+    if (canPlayCard(card)) {
+        players[playerIndex].splice(cardIndex, 1); // Rimuove la carta dalla mano
 
-    players[playerIndex].splice(cardIndex, 1);
-    const cardEl = document.createElement('div');
-    cardEl.classList.add('card', 'played-card');
-    const img = document.createElement('img');
-    img.src = `uno carte/${getCardImageName(card)}`;
-    img.alt = `${card.color} ${card.value}`;
-    cardEl.dataset.color = card.color;
-    cardEl.dataset.value = card.value;
-    cardEl.appendChild(img);
-
-    const current = document.querySelector('#game-container > .card:first-child');
-    if (current) current.remove();
-    document.getElementById('game-container').prepend(cardEl);
-
-    currentCard = { ...card };
-    updateCurrentColorDisplay();
-    checkWinCondition(playerIndex);
-    if (!gameOver) {
-        handleActionCard(card);
-        currentPlayer = getNextPlayer();
+        currentCard = { ...card }; // Aggiorna la carta corrente
         updateGameDisplay();
-        if (currentPlayer === 1) setTimeout(cpuTurn, 1000);
-    }
-}
-
-function drawCardForPlayer() {
-    if (gameOver || currentPlayer !== 0) return;
-    players[0].push(drawCard());
-    currentPlayer = getNextPlayer();
-    updateGameDisplay();
-    if (currentPlayer === 1 && !gameOver) {
-        setTimeout(cpuTurn, 1000);
-    }
-}
-
-function passTurn() {
-    if (gameOver || currentPlayer !== 0) return;
-    alert("Hai passato il turno e pescato una carta.");
-    players[0].push(drawCard());
-    currentPlayer = getNextPlayer();
-    updateGameDisplay();
-    if (currentPlayer === 1 && !gameOver) {
-        setTimeout(cpuTurn, 1000);
-    }
-}
-
-function cpuTurn() {
-    if (gameOver || currentPlayer !== 1) return;
-
-    const hand = players[1];
-    let index = hand.findIndex(c => canPlayCard(c) && (wildActions.includes(c.value) || actions.includes(c.value)));
-    if (index === -1) index = hand.findIndex(canPlayCard);
-
-    if (index !== -1) {
-        const card = hand[index];
-        hand.splice(index, 1);
-        const cardEl = document.createElement('div');
-        cardEl.classList.add('card', 'played-card');
-        const img = document.createElement('img');
-        img.src = `uno carte/${getCardImageName(card)}`;
-        img.alt = `${card.color} ${card.value}`;
-        cardEl.dataset.color = card.color;
-        cardEl.dataset.value = card.value;
-        cardEl.appendChild(img);
-        const current = document.querySelector('#game-container > .card:first-child');
-        if (current) current.remove();
-        document.getElementById('game-container').prepend(cardEl);
-
-        currentCard = { ...card };
-        updateCurrentColorDisplay();
-        checkWinCondition(1);
+        checkWinCondition(playerIndex);
         if (!gameOver) {
             handleActionCard(card);
-            currentPlayer = getNextPlayer();
-            updateGameDisplay();
-            if (currentPlayer === 1) setTimeout(cpuTurn, 1000);
         }
     } else {
-        players[1].push(drawCard());
-        currentPlayer = getNextPlayer();
+        alert("Non puoi giocare questa carta!");
+    }
+}
+
+// Il giocatore pesca una carta e passa il turno
+function drawAndPass() {
+    if (gameOver || currentPlayer !== 0 || choosingColor) return;
+    players[0].push(drawCard());
+    updateGameDisplay();
+    switchTurn();
+}
+
+// Il giocatore pesca una carta
+function drawCardForPlayer() {
+    if (gameOver || currentPlayer !== 0 || choosingColor) return;
+    players[0].push(drawCard());
+    updateGameDisplay();
+}
+
+// Turno della CPU
+function cpuTurn() {
+    if (gameOver || currentPlayer !== 1 || choosingColor) return;
+
+    const cpuHand = players[1];
+    let bestCardIndex = -1;
+
+    // Priorità alle carte azione e jolly giocabili
+    for (let i = 0; i < cpuHand.length; i++) {
+        if (canPlayCard(cpuHand[i]) && (actions.includes(cpuHand[i].value) || wildActions.includes(cpuHand[i].value))) {
+            bestCardIndex = i;
+            break;
+        }
+    }
+
+    // Se non ci sono azioni o jolly giocabili, cerca una carta normale giocabile
+    if (bestCardIndex === -1) {
+        bestCardIndex = cpuHand.findIndex(canPlayCard);
+    }
+
+    if (bestCardIndex !== -1) {
+        const playedCard = cpuHand[bestCardIndex];
+        players[1].splice(bestCardIndex, 1); // Rimuove la carta dalla mano
+
+        currentCard = { ...playedCard }; // Aggiorna la carta corrente
         updateGameDisplay();
-        if (currentPlayer === 1) setTimeout(cpuTurn, 1000);
+        checkWinCondition(1);
+        if (!gameOver) {
+            handleActionCard(playedCard);
+        }
+        // Se la CPU ha giocato un jolly, scegli il colore
+        if (playedCard.color === 'wild') {
+            setTimeout(() => {
+                const colorCounts = {};
+                players[1].forEach(card => {
+                    if (card.color !== 'wild') {
+                        colorCounts[card.color] = (colorCounts[card.color] || 0) + 1;
+                    }
+                });
+                let bestColor = 'red';
+                let maxCount = 0;
+                for (const color in colorCounts) {
+                    if (colorCounts[color] > maxCount) {
+                        maxCount = colorCounts[color];
+                        bestColor = color;
+                    }
+                }
+                currentCard.color = bestColor;
+                updateGameDisplay();
+                switchTurn();
+            }, 1000); // Piccolo ritardo per mostrare la carta prima del cambio colore
+            return; // Non passare subito il turno, aspetta la scelta del colore della CPU
+        }
+    } else {
+        // CPU pesca una carta e passa
+        players[1].push(drawCard());
+        updateGameDisplay();
+        switchTurn();
     }
 }
 
-function checkWinCondition(i) {
-    if (players[i].length === 0) {
+// Controlla se un giocatore ha vinto
+function checkWinCondition(playerIndex) {
+    if (players[playerIndex].length === 0) {
         gameOver = true;
-        alert(`${getPlayerName(i)} ha vinto!`);
+        alert(`${getPlayerName(playerIndex)} ha vinto!`);
     }
 }
 
+// Aggiorna la visualizzazione del gioco
 function updateGameDisplay() {
-    const container = document.getElementById('game-container');
-    const pDiv = document.querySelector('.player-hand');
-    if (pDiv) pDiv.remove();
-    const cpuDiv = document.querySelector('.cpu-hand');
-    if (cpuDiv) cpuDiv.remove();
+    const gameContainer = document.getElementById('game-container');
+    gameContainer.innerHTML = ''; // Pulisci il contenitore
 
-    const newPlayer = document.createElement('div');
-    newPlayer.classList.add('player-hand');
-    newPlayer.textContent = 'Le tue carte:';
+    // Mostra la carta attuale
+    const currentCardDiv = document.createElement('div');
+    currentCardDiv.classList.add('card', 'played-card');
+    const currentCardImg = document.createElement('img');
+    currentCardImg.src = `uno carte/${getCardImageName(currentCard)}`;
+    currentCardImg.alt = `${currentCard.color} ${currentCard.value}`;
+    currentCardDiv.appendChild(currentCardImg);
+    gameContainer.appendChild(currentCardDiv);
+
+    // Mostra le carte del giocatore
+    const playerHandDiv = document.createElement('div');
+    playerHandDiv.classList.add('player-hand');
     players[0].forEach((card, index) => {
-        const div = document.createElement('div');
-        div.classList.add('card');
-        const img = document.createElement('img');
-        img.src = `uno carte/${getCardImageName(card)}`;
-        img.alt = `${card.color} ${card.value}`;
-        img.onclick = () => playCard(0, index);
-        div.appendChild(img);
-        newPlayer.appendChild(div);
+        const cardDiv = document.createElement('div');
+        cardDiv.classList.add('card');
+        const cardImg = document.createElement('img');
+        cardImg.src = `uno carte/${getCardImageName(card)}`;
+        cardImg.alt = `${card.color} ${card.value}`;
+        cardDiv.onclick = () => playCard(0, index);
+        cardDiv.appendChild(cardImg);
+        playerHandDiv.appendChild(cardDiv);
     });
-    container.appendChild(newPlayer);
+    gameContainer.appendChild(playerHandDiv);
 
-    if (!document.querySelector('.draw-card')) {
-        const drawDiv = document.createElement('div');
-        drawDiv.classList.add('card', 'draw-card');
-        const img = document.createElement('img');
-        img.src = `uno carte/VUOTO.png`;
-        img.alt = "Pesca una carta";
-        img.onclick = drawCardForPlayer;
-        drawDiv.appendChild(img);
-        container.appendChild(drawDiv);
-    }
+    // Controlli del giocatore (Pesca e Passa)
+    const playerControlsDiv = document.createElement('div');
+    playerControlsDiv.classList.add('player-controls');
+    playerControlsDiv.style.display = 'flex';
+    playerControlsDiv.style.gap = '10px';
+    playerControlsDiv.style.marginTop = '10px';
 
-    const cpuHand = document.createElement('div');
-    cpuHand.classList.add('cpu-hand');
-    cpuHand.textContent = `Carte CPU: ${players[1].length}`;
-    container.appendChild(cpuHand);
+    const drawCardButton = document.createElement('div');
+    drawCardButton.classList.add('card', 'draw-card');
+    drawCardButton.textContent = 'Pesca Carta';
+    drawCardButton.onclick = drawCardForPlayer;
+    playerControlsDiv.appendChild(drawCardButton);
+
+    const passButton = document.createElement('div');
+    passButton.classList.add('card', 'pass-button');
+    passButton.textContent = 'Passa Turno';
+    passButton.onclick = drawAndPass;
+    playerControlsDiv.appendChild(passButton);
+
+    gameContainer.appendChild(playerControlsDiv);
+
+    // Mostra il numero di carte della CPU
+    const cpuHandDiv = document.createElement('div');
+    cpuHandDiv.classList.add('cpu-hand');
+    cpuHandDiv.textContent = `CPU: ${players[1].length} carte`;
+    gameContainer.appendChild(cpuHandDiv);
+
+    // Mostra la scelta del colore se necessario (solo per il giocatore)
+    updateColorChoiceDisplay();
 }
 
-function updateCurrentColorDisplay() {
-    let el = document.getElementById('current-color');
-    if (!el) {
-        el = document.createElement('div');
-        el.id = 'current-color';
-        el.style.marginTop = '10px';
-        document.getElementById('game-container').appendChild(el);
+function updateColorChoiceDisplay() {
+    const gameContainer = document.getElementById('game-container');
+    const existingColorChoice = document.getElementById('color-choice');
+    if (existingColorChoice) {
+        existingColorChoice.remove();
     }
-    el.textContent = `Colore attuale: ${currentCard.color.toUpperCase()}`;
-    el.style.color = currentCard.color !== 'wild' ? currentCard.color : 'black';
+
+    if (choosingColor && currentPlayer === 0) {
+        const colorChoiceDiv = document.createElement('div');
+        colorChoiceDiv.id = 'color-choice';
+        colorChoiceDiv.textContent = 'Scegli un colore:';
+        colorChoiceDiv.style.display = 'flex'; // Mostra come flex per allineare i bottoni
+        colorChoiceDiv.style.gap = '10px'; // Spazio tra i bottoni
+        colorChoiceDiv.style.marginTop = '10px';
+
+        colors.forEach(color => {
+            const colorButton = document.createElement('button');
+            colorButton.classList.add('color-button');
+            colorButton.style.backgroundColor = color;
+            colorButton.style.width = '60px'; // Pulsanti più grandi
+            colorButton.style.height = '60px';
+            colorButton.style.borderRadius = '50%';
+            colorButton.style.cursor = 'pointer';
+            colorButton.onclick = () => chooseColor(color);
+            colorChoiceDiv.appendChild(colorButton);
+        });
+        gameContainer.appendChild(colorChoiceDiv);
+    }
 }
 
+// Funzione per ottenere il nome del file immagine della carta
 function getCardImageName(card) {
-    return card.color === 'wild' ? `${card.value}.PNG` : `${card.value}${card.color[0].toUpperCase()}.PNG`;
+    if (!card) return 'VUOTO.png';
+
+    let name = '';
+    if (card.color === 'wild') {
+        name = card.value;
+    } else {
+        name = card.value;
+        switch (card.color) {
+            case 'red': name += 'R'; break;
+            case 'green': name += 'G'; break;
+            case 'blue': name += 'B'; break;
+            case 'yellow': name += 'Y'; break;
+        }
+    }
+    return `${name}.PNG`;
 }
 
+// Assicurati che il gioco inizi dopo il caricamento del DOM
 window.onload = () => {
-    initGame(2);
-    const passButton = document.getElementById('pass-button');
-    passButton.onclick = passTurn;
+    initGame(2); // Giocatore vs CPU
 };
