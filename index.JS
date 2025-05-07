@@ -302,7 +302,13 @@ function updateGameDisplay() {
 
     const drawCardButton = document.createElement('div');
     drawCardButton.classList.add('card', 'draw-card');
-    drawCardButton.textContent = 'Pesca Carta';
+    const drawCardImg = document.createElement('img'); // Aggiungi immagine
+    drawCardImg.src = `uno carte/VUOTO.png`;
+    drawCardImg.alt = 'Pesca Carta';
+    drawCardImg.style.width = '100%'; // Occupa tutta la larghezza del contenitore
+    drawCardImg.style.height = '100%'; // Occupa tutta l'altezza del contenitore
+    drawCardImg.style.objectFit = 'cover'; // Adatta l'immagine senza distorsioni
+    drawCardButton.appendChild(drawCardImg);
     drawCardButton.onclick = drawCardForPlayer;
     playerControlsDiv.appendChild(drawCardButton);
 
