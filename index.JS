@@ -227,7 +227,6 @@ function updateGameDisplay() {
     const container = document.getElementById('game-container');
     container.innerHTML = '';
 
-    // Mostra carta corrente
     const currentCardDiv = document.createElement('div');
     currentCardDiv.className = 'card played-card';
     const cardImg = document.createElement('img');
@@ -236,7 +235,6 @@ function updateGameDisplay() {
     currentCardDiv.appendChild(cardImg);
     container.appendChild(currentCardDiv);
 
-    // Mano del giocatore
     const handDiv = document.createElement('div');
     handDiv.className = 'player-hand';
     players[0].forEach((card, i) => {
@@ -251,7 +249,6 @@ function updateGameDisplay() {
     });
     container.appendChild(handDiv);
 
-    // Controlli
     const controls = document.createElement('div');
     controls.className = 'player-controls';
     controls.style.display = 'flex';
@@ -260,7 +257,13 @@ function updateGameDisplay() {
 
     const drawBtn = document.createElement('div');
     drawBtn.className = 'card draw-card';
-    drawBtn.textContent = 'Pesca Carta';
+    const drawImg = document.createElement('img');
+    drawImg.src = 'uno carte/VUOTO.png';
+    drawImg.alt = 'Pesca Carta';
+    drawImg.style.width = '100%';
+    drawImg.style.height = '100%';
+    drawImg.style.objectFit = 'cover';
+    drawBtn.appendChild(drawImg);
     drawBtn.onclick = drawCardForPlayer;
     controls.appendChild(drawBtn);
 
@@ -269,7 +272,6 @@ function updateGameDisplay() {
     passBtn.textContent = 'Passa Turno';
     passBtn.onclick = drawAndPass;
 
-    // 👇 Attiva/disattiva in base a hasDrawnCard
     if (!hasDrawnCard) {
         passBtn.style.opacity = '0.5';
         passBtn.style.pointerEvents = 'none';
@@ -281,7 +283,6 @@ function updateGameDisplay() {
     controls.appendChild(passBtn);
     container.appendChild(controls);
 
-    // Mano della CPU
     const cpuHand = document.createElement('div');
     cpuHand.className = 'cpu-hand';
     cpuHand.textContent = `CPU: ${players[1].length} carte`;
