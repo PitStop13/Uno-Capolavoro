@@ -1,21 +1,20 @@
 // index.js
 
-// Variabili di gioco
 const colors = ['red', 'green', 'blue', 'yellow'];
 const numbers = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
 const actions = ['+2', 'skip', 'reverse'];
 const wildActions = ['wild', '+4'];
+
 let deck = [];
 let players = [];
-let currentPlayer = 0; // 0 = Player, 1 = CPU
+let currentPlayer = 0;
 let currentCard = null;
-let currentDirection = 1; // 1 = avanti, -1 = indietro
+let currentDirection = 1;
 let gameOver = false;
 let choosingColor = false;
 let cardBeingPlayed = null;
-let hasDrawnCard = false; // 👈 Nuova variabile per evitare doppia pesca
+let hasDrawnCard = false;
 
-// Inizializza il gioco
 function initGame(numPlayers) {
     deck = [];
     players = Array(numPlayers).fill(null).map(() => []);
@@ -38,16 +37,15 @@ function initGame(numPlayers) {
 }
 
 function createDeck() {
-    deck = [];
     for (let color of colors) {
         deck.push({ color: color, value: '0' });
         for (let i = 1; i <= 9; i++) {
-            deck.push({ color: color, value: i.toString() });
-            deck.push({ color: color, value: i.toString() });
+            deck.push({ color, value: i.toString() });
+            deck.push({ color, value: i.toString() });
         }
         for (let action of actions) {
-            deck.push({ color: color, value: action });
-            deck.push({ color: color, value: action });
+            deck.push({ color, value: action });
+            deck.push({ color, value: action });
         }
     }
     for (let i = 0; i < 4; i++) {
@@ -64,51 +62,39 @@ function shuffleDeck() {
 }
 
 function dealCards(numPlayers) {
-    players = Array.from({ length: numPlayers }, () => []);
     for (let i = 0; i < 7; i++) {
-        for (let player of players) {
-            player.push(deck.pop());
+        for (let j = 0; j < numPlayers; j++) {
+            players[j].push(deck.pop());
         }
     }
 }
 
 function drawCard() {
-    if (deck.length === 0) {
-        resetDeck();
-    }
+    if (deck.length === 0) resetDeck();
     return deck.pop();
 }
 
 function resetDeck() {
     const lastCard = currentCard;
-    let discardedCards = [];
-    const gameContainer = document.getElementById('game-container');
-    const playedCardElement = gameContainer.querySelector('.played-card');
-    if (playedCardElement) {
-        const tempDeck = [];
-        players.forEach(hand => {
-            hand.forEach(card => {
-                if (!(card.color === lastCard.color && card.value === lastCard.value)) {
-                    tempDeck.push(card);
-                }
-            });
+    const tempDeck = [];
+
+    players.forEach(hand => {
+        hand.forEach(card => {
+            if (!(card.color === lastCard.color && card.value === lastCard.value)) {
+                tempDeck.push(card);
+            }
         });
-        deck = tempDeck;
-        shuffleDeck();
-        currentCard = { ...lastCard };
-        updateGameDisplay();
-    } else {
-        createDeck();
-        shuffleDeck();
-        dealCards(players.length);
-        currentCard = drawCard();
-        updateGameDisplay();
-    }
+    });
+
+    deck = tempDeck;
+    shuffleDeck();
+    currentCard = { ...lastCard };
+    updateGameDisplay();
 }
 
 function canPlayCard(card) {
-    if (!currentCard) return true;
     return (
+        !currentCard ||
         card.color === currentCard.color ||
         card.value === currentCard.value ||
         card.color === 'wild'
@@ -116,10 +102,10 @@ function canPlayCard(card) {
 }
 
 function handleActionCard(card) {
+    const nextPlayer = getNextPlayer();
+
     if (card.value === '+2') {
-        const nextPlayer = getNextPlayer();
-        players[nextPlayer].push(drawCard());
-        players[nextPlayer].push(drawCard());
+        players[nextPlayer].push(drawCard(), drawCard());
         updateGameDisplay();
         alert(`${getPlayerName(nextPlayer)} pesca 2 carte!`);
     } else if (card.value === 'skip') {
@@ -128,23 +114,13 @@ function handleActionCard(card) {
     } else if (card.value === 'reverse') {
         currentDirection *= -1;
         alert('La direzione di gioco è stata invertita!');
-    } else if (card.value === '+4') {
-        const nextPlayer = getNextPlayer();
-        for (let i = 0; i < 4; i++) {
-            players[nextPlayer].push(drawCard());
-        }
-        updateGameDisplay();
-        alert(`${getPlayerName(nextPlayer)} pesca 4 carte!`);
-        choosingColor = true;
-        cardBeingPlayed = card;
-        updateColorChoiceDisplay();
-        return;
-    } else if (card.value === 'wild') {
+    } else if (card.value === '+4' || card.value === 'wild') {
         choosingColor = true;
         cardBeingPlayed = card;
         updateColorChoiceDisplay();
         return;
     }
+
     switchTurn();
 }
 
@@ -161,7 +137,7 @@ function chooseColor(color) {
 
 function switchTurn() {
     if (!gameOver) {
-        hasDrawnCard = false; // 👈 Reset pesca all'inizio del turno
+        hasDrawnCard = false;
         currentPlayer = getNextPlayer();
         updateGameDisplay();
         if (currentPlayer === 1) setTimeout(cpuTurn, 1500);
@@ -172,38 +148,35 @@ function getNextPlayer() {
     return (currentPlayer + currentDirection + players.length) % players.length;
 }
 
-function getPlayerName(playerIndex) {
-    return playerIndex === 0 ? 'Giocatore' : 'CPU';
+function getPlayerName(i) {
+    return i === 0 ? 'Giocatore' : 'CPU';
 }
 
 function playCard(playerIndex, cardIndex) {
     if (gameOver || currentPlayer !== 0 || choosingColor) return;
+
     const card = players[playerIndex][cardIndex];
     if (canPlayCard(card)) {
         players[playerIndex].splice(cardIndex, 1);
         currentCard = { ...card };
         updateGameDisplay();
         checkWinCondition(playerIndex);
-        if (!gameOver) {
-            handleActionCard(card);
-        }
+        if (!gameOver) handleActionCard(card);
     } else {
         alert("Non puoi giocare questa carta!");
     }
 }
 
-// 👇 Modificata: Passa solo se ha pescato prima
 function drawAndPass() {
     if (gameOver || currentPlayer !== 0 || choosingColor) return;
     if (!hasDrawnCard) {
-        alert("Devi prima pescare una carta prima di passare il turno.");
+        alert("Devi prima pescare una carta.");
         return;
     }
     hasDrawnCard = false;
     switchTurn();
 }
 
-// 👇 Modificata: Permette pesca solo una volta per turno
 function drawCardForPlayer() {
     if (gameOver || currentPlayer !== 0 || choosingColor || hasDrawnCard) return;
     players[0].push(drawCard());
@@ -213,47 +186,28 @@ function drawCardForPlayer() {
 
 function cpuTurn() {
     if (gameOver || currentPlayer !== 1 || choosingColor) return;
-    const cpuHand = players[1];
-    let bestCardIndex = -1;
-    for (let i = 0; i < cpuHand.length; i++) {
-        if (canPlayCard(cpuHand[i]) && (actions.includes(cpuHand[i].value) || wildActions.includes(cpuHand[i].value))) {
-            bestCardIndex = i;
-            break;
-        }
-    }
-    if (bestCardIndex === -1) {
-        bestCardIndex = cpuHand.findIndex(canPlayCard);
-    }
-    if (bestCardIndex !== -1) {
-        const playedCard = cpuHand[bestCardIndex];
-        players[1].splice(bestCardIndex, 1);
-        currentCard = { ...playedCard };
+    const hand = players[1];
+    let index = hand.findIndex(c => canPlayCard(c) && (actions.includes(c.value) || wildActions.includes(c.value)));
+    if (index === -1) index = hand.findIndex(canPlayCard);
+
+    if (index !== -1) {
+        const card = hand[index];
+        players[1].splice(index, 1);
+        currentCard = { ...card };
         updateGameDisplay();
         checkWinCondition(1);
-        if (!gameOver) {
-            handleActionCard(playedCard);
-        }
-        if (playedCard.color === 'wild') {
+        if (!gameOver) handleActionCard(card);
+        if (card.color === 'wild') {
             setTimeout(() => {
-                const colorCounts = {};
-                players[1].forEach(card => {
-                    if (card.color !== 'wild') {
-                        colorCounts[card.color] = (colorCounts[card.color] || 0) + 1;
-                    }
+                const counts = {};
+                players[1].forEach(c => {
+                    if (c.color !== 'wild') counts[c.color] = (counts[c.color] || 0) + 1;
                 });
-                let bestColor = 'red';
-                let maxCount = 0;
-                for (const color in colorCounts) {
-                    if (colorCounts[color] > maxCount) {
-                        maxCount = colorCounts[color];
-                        bestColor = color;
-                    }
-                }
+                const bestColor = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b, 'red');
                 currentCard.color = bestColor;
                 updateGameDisplay();
                 switchTurn();
             }, 1000);
-            return;
         }
     } else {
         players[1].push(drawCard());
@@ -262,114 +216,124 @@ function cpuTurn() {
     }
 }
 
-function checkWinCondition(playerIndex) {
-    if (players[playerIndex].length === 0) {
+function checkWinCondition(index) {
+    if (players[index].length === 0) {
         gameOver = true;
-        alert(`${getPlayerName(playerIndex)} ha vinto!`);
+        alert(`${getPlayerName(index)} ha vinto!`);
     }
 }
 
 function updateGameDisplay() {
-    const gameContainer = document.getElementById('game-container');
-    gameContainer.innerHTML = '';
+    const container = document.getElementById('game-container');
+    container.innerHTML = '';
+
+    // Mostra carta corrente
     const currentCardDiv = document.createElement('div');
-    currentCardDiv.classList.add('card', 'played-card');
-    const currentCardImg = document.createElement('img');
-    currentCardImg.src = `uno carte/${getCardImageName(currentCard)}`;
-    currentCardImg.alt = `${currentCard.color} ${currentCard.value}`;
-    currentCardDiv.appendChild(currentCardImg);
-    gameContainer.appendChild(currentCardDiv);
+    currentCardDiv.className = 'card played-card';
+    const cardImg = document.createElement('img');
+    cardImg.src = `uno carte/${getCardImageName(currentCard)}`;
+    cardImg.alt = `${currentCard.color} ${currentCard.value}`;
+    currentCardDiv.appendChild(cardImg);
+    container.appendChild(currentCardDiv);
 
-    const playerHandDiv = document.createElement('div');
-    playerHandDiv.classList.add('player-hand');
-    players[0].forEach((card, index) => {
+    // Mano del giocatore
+    const handDiv = document.createElement('div');
+    handDiv.className = 'player-hand';
+    players[0].forEach((card, i) => {
         const cardDiv = document.createElement('div');
-        cardDiv.classList.add('card');
-        const cardImg = document.createElement('img');
-        cardImg.src = `uno carte/${getCardImageName(card)}`;
-        cardImg.alt = `${card.color} ${card.value}`;
-        cardDiv.onclick = () => playCard(0, index);
-        cardDiv.appendChild(cardImg);
-        playerHandDiv.appendChild(cardDiv);
+        cardDiv.className = 'card';
+        const img = document.createElement('img');
+        img.src = `uno carte/${getCardImageName(card)}`;
+        img.alt = `${card.color} ${card.value}`;
+        cardDiv.onclick = () => playCard(0, i);
+        cardDiv.appendChild(img);
+        handDiv.appendChild(cardDiv);
     });
-    gameContainer.appendChild(playerHandDiv);
+    container.appendChild(handDiv);
 
-    const playerControlsDiv = document.createElement('div');
-    playerControlsDiv.classList.add('player-controls');
-    playerControlsDiv.style.display = 'flex';
-    playerControlsDiv.style.gap = '10px';
-    playerControlsDiv.style.marginTop = '10px';
+    // Controlli
+    const controls = document.createElement('div');
+    controls.className = 'player-controls';
+    controls.style.display = 'flex';
+    controls.style.gap = '10px';
+    controls.style.marginTop = '10px';
 
-    const drawCardButton = document.createElement('div');
-    drawCardButton.classList.add('card', 'draw-card');
-    drawCardButton.textContent = 'Pesca Carta';
-    drawCardButton.onclick = drawCardForPlayer;
-    playerControlsDiv.appendChild(drawCardButton);
+    const drawBtn = document.createElement('div');
+    drawBtn.className = 'card draw-card';
+    drawBtn.textContent = 'Pesca Carta';
+    drawBtn.onclick = drawCardForPlayer;
+    controls.appendChild(drawBtn);
 
-    const passButton = document.createElement('div');
-    passButton.classList.add('card', 'pass-button');
-    passButton.textContent = 'Passa Turno';
-    passButton.onclick = drawAndPass;
-    playerControlsDiv.appendChild(passButton);
+    const passBtn = document.createElement('div');
+    passBtn.className = 'card pass-button';
+    passBtn.textContent = 'Passa Turno';
+    passBtn.onclick = drawAndPass;
 
-    gameContainer.appendChild(playerControlsDiv);
+    // 👇 Attiva/disattiva in base a hasDrawnCard
+    if (!hasDrawnCard) {
+        passBtn.style.opacity = '0.5';
+        passBtn.style.pointerEvents = 'none';
+    } else {
+        passBtn.style.opacity = '1';
+        passBtn.style.pointerEvents = 'auto';
+    }
 
-    const cpuHandDiv = document.createElement('div');
-    cpuHandDiv.classList.add('cpu-hand');
-    cpuHandDiv.textContent = `CPU: ${players[1].length} carte`;
-    gameContainer.appendChild(cpuHandDiv);
+    controls.appendChild(passBtn);
+    container.appendChild(controls);
+
+    // Mano della CPU
+    const cpuHand = document.createElement('div');
+    cpuHand.className = 'cpu-hand';
+    cpuHand.textContent = `CPU: ${players[1].length} carte`;
+    container.appendChild(cpuHand);
 
     updateColorChoiceDisplay();
 }
 
 function updateColorChoiceDisplay() {
-    const gameContainer = document.getElementById('game-container');
-    const existingColorChoice = document.getElementById('color-choice');
-    if (existingColorChoice) {
-        existingColorChoice.remove();
-    }
+    const container = document.getElementById('game-container');
+    const old = document.getElementById('color-choice');
+    if (old) old.remove();
 
     if (choosingColor && currentPlayer === 0) {
-        const colorChoiceDiv = document.createElement('div');
-        colorChoiceDiv.id = 'color-choice';
-        colorChoiceDiv.textContent = 'Scegli un colore:';
-        colorChoiceDiv.style.display = 'flex';
-        colorChoiceDiv.style.gap = '10px';
-        colorChoiceDiv.style.marginTop = '10px';
+        const choiceDiv = document.createElement('div');
+        choiceDiv.id = 'color-choice';
+        choiceDiv.textContent = 'Scegli un colore:';
+        choiceDiv.style.display = 'flex';
+        choiceDiv.style.gap = '10px';
+        choiceDiv.style.marginTop = '10px';
 
         colors.forEach(color => {
-            const colorButton = document.createElement('button');
-            colorButton.classList.add('color-button');
-            colorButton.style.backgroundColor = color;
-            colorButton.style.width = '60px';
-            colorButton.style.height = '60px';
-            colorButton.style.borderRadius = '50%';
-            colorButton.style.cursor = 'pointer';
-            colorButton.onclick = () => chooseColor(color);
-            colorChoiceDiv.appendChild(colorButton);
+            const btn = document.createElement('button');
+            btn.className = 'color-button';
+            btn.style.backgroundColor = color;
+            btn.style.width = '60px';
+            btn.style.height = '60px';
+            btn.style.borderRadius = '50%';
+            btn.style.cursor = 'pointer';
+            btn.onclick = () => chooseColor(color);
+            choiceDiv.appendChild(btn);
         });
-        gameContainer.appendChild(colorChoiceDiv);
+
+        container.appendChild(choiceDiv);
     }
 }
 
 function getCardImageName(card) {
     if (!card) return 'VUOTO.png';
 
-    let name = '';
     if (card.color === 'wild') {
-        name = card.value;
-    } else {
-        name = card.value;
-        switch (card.color) {
-            case 'red': name += 'R'; break;
-            case 'green': name += 'G'; break;
-            case 'blue': name += 'B'; break;
-            case 'yellow': name += 'Y'; break;
-        }
+        return card.value === 'wild' ? 'wild.png' : '+4.png';
     }
-    return `${name}.PNG`;
+
+    const suffix = {
+        red: 'R',
+        green: 'G',
+        blue: 'B',
+        yellow: 'Y'
+    }[card.color];
+
+    return `${card.value}${suffix}.PNG`;
 }
 
-window.onload = () => {
-    initGame(2);
-};
+window.onload = () => initGame(2);
