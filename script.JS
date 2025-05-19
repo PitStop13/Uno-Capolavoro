@@ -107,30 +107,30 @@ function resetDeck() {
 
 function canPlayCard(card) {
     if (!currentCard) return true;
-    
+
     // Se ci sono carte +2 o +4 in stack, si possono giocare solo quelle
     if (plus2Stack > 0 && card.value !== '+2') return false;
     if (plus4Stack > 0 && card.value !== '+4') return false;
-    
+
     // Carte normali
-    return card.color === 'wild' || 
-           card.color === currentCard.color || 
-           card.value === currentCard.value;
+    return card.color === 'wild' ||
+        card.color === currentCard.color ||
+        card.value === currentCard.value;
 }
 
 function playCard(playerIndex, cardIndex) {
     if (gameOver || currentPlayer !== playerIndex || choosingColor) return;
-    
+
     const card = players[playerIndex][cardIndex];
-    
+
     if (canPlayCard(card)) {
         players[playerIndex].splice(cardIndex, 1);
         currentCard = { ...card }; // importante creare una copia
         updateGameDisplay();
-        
+
         checkWinCondition(playerIndex);
         if (gameOver) return;
-        
+
         handleActionCard(card); // Passa la carta giocata
     } else {
         alert("Non puoi giocare questa carta!");
@@ -235,7 +235,7 @@ function getPlayerName(index) {
 
 function drawCardForPlayer() {
     if (gameOver || currentPlayer !== 0 || choosingColor || hasDrawnCard) return;
-    
+
     const drawnCard = drawCard();
     players[0].push(drawnCard);
     hasDrawnCard = true;
@@ -250,7 +250,7 @@ function drawCardForPlayer() {
 }
 
 function drawAndPass() {
-     if (gameOver || currentPlayer !== 0 || choosingColor || (!hasDrawnCard && plus2Stack === 0 && plus4Stack === 0)) return;
+    if (gameOver || currentPlayer !== 0 || choosingColor || (!hasDrawnCard && plus2Stack === 0 && plus4Stack === 0)) return;
 
 
     if (plus2Stack > 0) {
@@ -288,7 +288,7 @@ function cpuTurn() {
             // Cerca +2
             cardToPlay = playableCards.find(({ card }) => card.value === '+2');
         }
-         if (!cardToPlay) {
+        if (!cardToPlay) {
             // Cerca carte dello stesso colore della carta corrente
             cardToPlay = playableCards.find(({ card }) => card.color === currentCard.color);
         }
@@ -441,61 +441,60 @@ function updateGameDisplay() {
             cardsContainer.appendChild(cardDiv);
         }
 
-cpuHandDiv.appendChild(cardsContainer);
-                container.appendChild(cpuHandDiv);
-            }
+        cpuHandDiv.appendChild(cardsContainer);
+        container.appendChild(cpuHandDiv);
+    }
 
-            // Mostra la scelta del colore se necessario
-            updateColorChoiceDisplay();
-        }
+    // Mostra la scelta del colore se necessario
+    updateColorChoiceDisplay();
+}
 
-        function updateColorChoiceDisplay() {
-            const container = document.getElementById('game-container');
-            const old = document.getElementById('color-choice');
-            if (old) old.remove();
+function updateColorChoiceDisplay() {
+    const container = document.getElementById('game-container');
+    const old = document.getElementById('color-choice');
+    if (old) old.remove();
 
-            if (choosingColor && currentPlayer ===0) {
-                const choiceDiv = document.createElement('div');
-                choiceDiv.id = 'color-choice';
+    if (choosingColor && currentPlayer === 0) {
+        const choiceDiv = document.createElement('div');
+        choiceDiv.id = 'color-choice';
 
-                const title = document.createElement('p');
-                title.textContent = 'Scegli un colore:';
-                choiceDiv.appendChild(title);
+        const title = document.createElement('p');
+        title.textContent = 'Scegli un colore:';
+        choiceDiv.appendChild(title);
 
-                const buttonsDiv = document.createElement('div');
-                buttonsDiv.style.display = 'flex';
-                buttonsDiv.style.justifyContent = 'center';
-                buttonsDiv.style.gap = '10px';
+        const buttonsDiv = document.createElement('div');
+        buttonsDiv.style.display = 'flex';
+        buttonsDiv.style.justifyContent = 'center';
+        buttonsDiv.style.gap = '10px';
 
-                colors.forEach(color => {
-                    const btn = document.createElement('button');
-                    btn.className = 'color-button';
-                    btn.style.backgroundColor = color;
-                    btn.onclick = () => chooseColor(color);
-                    buttonsDiv.appendChild(btn);
-                });
+        colors.forEach(color => {
+            const btn = document.createElement('button');
+            btn.className = 'color-button';
+            btn.style.backgroundColor = color;
+            btn.onclick = () => chooseColor(color);
+            buttonsDiv.appendChild(btn);
+        });
 
-                choiceDiv.appendChild(buttonsDiv);
-                container.appendChild(choiceDiv);
-            }
-        }
+        choiceDiv.appendChild(buttonsDiv);
+        container.appendChild(choiceDiv);
+    }
+}
 
-        function getCardImageName(card) {
-            if (!card) return 'VUOTO.png';
+function getCardImageName(card) {
+    if (!card) return 'VUOTO.png';
 
-            if (card.color === 'wild') {
-                return card.value === 'wild' ? 'wild.png' : '+4.png';
-            }
+    if (card.color === 'wild') {
+        return card.value === 'wild' ? 'wild.png' : '+4.png';
+    }
 
-            const suffix = {
-                red: 'R',
-                green: 'G',
-                blue: 'B',
-                yellow: 'Y'
-            }[card.color];
+    const suffix = {
+        red: 'R',
+        green: 'G',
+        blue: 'B',
+        yellow: 'Y'
+    }[card.color];
 
-            return `${card.value}${suffix}.PNG`;
-        }
+    return `${card.value}${suffix}.PNG`;
+}
 
-        // Avvia il gioco quando la pagina è caricata
-        window.onload = () => initGame(2);
+window.onload = () => initGame(2);
